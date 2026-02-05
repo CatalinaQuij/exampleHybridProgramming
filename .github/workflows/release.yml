@@ -8,71 +8,44 @@ on:
 jobs:
   build:
     name: Compilando para Android y Windows
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Enable Windows support
-        run: flutter config --enable-windows-desktop
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Windows
-        run: flutter build windows --release
-
-      - name: Archive Windows release
-        uses: actions/upload-artifact@v3
-        with:
-          name: windows-release
-          path: build/windows/runner/Release/
-          retention-days: 1
-      
-      - name: Build APK
+      - name: Build Android
         run: flutter build apk --release
 
-      - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk myapp-release.apk
+      - name: Build Windows
+        run: |
+          flutter config --enable-windows-desktop
+          flutter build windows --release
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Verificar archivos generados
+        run: |
+          echo "=== Verificando APK ==="
+          dir build\app\outputs\flutter-apk\
+          echo "=== Verificando Windows build ==="
+          dir build\windows\runner\Release\
+
+      - name: Comprimir archivos de Windows
+        shell: powershell
+        run: |
+          Compress-Archive -Path build\windows\runner\Release\* -DestinationPath myapp-windows.zip
+
+      - name: Renombrar APK
+        run: |
+          copy build\app\outputs\flutter-apk\app-release.apk myapp-android.apk
+
+      - name: Crear Release y Subir Archivos
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            myapp-android.apk
+            myapp-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Windows Artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-release.zip
-          asset_name: windows-release.zip
-          asset_content_type: application/zip
-
-      - name: Upload APK Artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./myapp-release.apk
-          asset_name: myapp-release.apk
-          asset_content_type: application/vnd.android.package-archive
