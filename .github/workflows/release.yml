@@ -1,9 +1,8 @@
-YAML
 name: Publicacion Automatica
 on:
 push:
 tags:
-- 'v*' # Se activa cuando creas una versión como v1.0
+- 'v*' # Se activa cuando creas una versión como v1.0|
 jobs:
 build:
 name: Compilando para Android y Windows
